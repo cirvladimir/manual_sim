@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual Transmission Sim</title>
+<style>
+  body {
+    margin: 0;
+    background: #1a1a1a;
+    color: #ddd;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+  }
+  h1 { font-size: 18px; margin: 0 0 10px; font-weight: 600; }
+  canvas { display: block; border-radius: 6px; }
+  #game { background: #cfe8ff; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+  #panel {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-top: 12px;
+    width: 900px;
+    max-width: 100%;
+  }
+  #geardisplay {
+    text-align: center;
+    min-width: 120px;
+  }
+  #gear { font-size: 64px; font-weight: 800; line-height: 1; }
+  #status { font-size: 13px; color: #aaa; height: 16px; }
+  #bars { flex: 1; }
+  .bar-row { display: flex; align-items: center; margin: 4px 0; font-size: 12px; }
+  .bar-row .lbl { width: 60px; color: #aaa; }
+  .bar-track { flex: 1; height: 14px; background: #333; border-radius: 7px; overflow: hidden; }
+  .bar-fill { height: 100%; width: 0%; transition: width 0.05s linear; }
+  #clutchbar { background: #3498db; }
+  #gasbar { background: #2ecc71; }
+  #brakebar { background: #e74c3c; }
+  #info { font-size: 11px; color: #888; margin-top: 12px; max-width: 900px; line-height: 1.6; }
+  #info b { color: #bbb; }
+  #inputmode { color: #f1c40f; }
+</style>
+</head>
+<body>
+  <h1>Manual Transmission Sim — <span id="inputmode">detecting…</span></h1>
+
+  <canvas id="game" width="900" height="380"></canvas>
+
+  <div id="panel">
+    <div id="geardisplay">
+      <div id="gear">N</div>
+      <div id="status">Engine OFF</div>
+    </div>
+    <canvas id="gauges" width="420" height="170"></canvas>
+    <div id="bars">
+      <div class="bar-row"><span class="lbl">Clutch</span><div class="bar-track"><div id="clutchbar" class="bar-fill"></div></div></div>
+      <div class="bar-row"><span class="lbl">Gas</span><div class="bar-track"><div id="gasbar" class="bar-fill"></div></div></div>
+      <div class="bar-row"><span class="lbl">Brake</span><div class="bar-track"><div id="brakebar" class="bar-fill"></div></div></div>
+    </div>
+  </div>
+
+  <div id="info">
+    <b>Xbox:</b> Left trigger = clutch · Right trigger = gas · Right bumper = brake ·
+    Right stick up/down = shift up/down · A = start engine.<br>
+    <b>Keyboard fallback:</b> C = clutch · ↑ = gas · Space = brake · E / Q = shift up/down · Enter = start.<br>
+    Start in <b>N</b>, press start. To pull away: clutch in, select <b>1</b>, add gas, slowly release the clutch. Dump it and you'll stall.
+  </div>
+
+  <script src="physics.js"></script>
+  <script src="track.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
