@@ -71,6 +71,35 @@ const elStatus = document.getElementById('status');
 
 const PPM = 8; // pixels per metre
 
+// ---------- stop sign / traffic light enforcement ----------
+let goodStops = 0, violations = 0;
+let message = null; // { text, color, until }
+function setMessage(text, color) {
+  message = { text, color, until: performance.now() + 2000 };
+}
+
+function checkFeatures() {
+  for (const f of track.features) {
+    if (f.passed) continue;
+    const ahead = f.s - car.s; // > 0 = still in front of us
+    // a stop sign is satisfied if we nearly stop within ~12 m before it
+    if (f.type === 'stop' && ahead > 0 && ahead < 12 && Math.abs(car.v) < 0.3) {
+      f.satisfied = true;
+    }
+    if (car.s >= f.s) { // just drove past it (moving forward)
+      f.passed = true;
+      if (f.type === 'stop') {
+        if (f.satisfied) { goodStops++; setMessage('Good stop ✓', '#2ecc71'); }
+        else { violations++; setMessage('🛑 Ran the stop sign!', '#e74c3c'); }
+      } else { // traffic light
+        if (f.state === 'red') { violations++; setMessage('🚦 Ran a red light!', '#e74c3c'); }
+        else if (f.state === 'yellow') { setMessage('Through on yellow', '#f1c40f'); }
+        else { setMessage('Green ✓', '#2ecc71'); }
+      }
+    }
+  }
+}
+
 // ---------- keyboard state ----------
 const keys = {};
 window.addEventListener('keydown', (e) => {
@@ -143,12 +172,14 @@ function frame(now) {
   const inputs = readInputs();
   lastInputs = inputs;
 
+  track.generateTo(car.s + 220); // keep the road built out ahead of the car
   const slope = track.slopeAt(car.s);
   car.update(dt, inputs, slope);
+  track.updateLights(dt);
+  checkFeatures();
 
-  // keep the car on the track
+  // can't roll back past the start
   if (car.s < 0) { car.s = 0; if (car.v < 0) car.v = 0; }
-  if (car.s > track.length) { car.s = track.length; if (car.v > 0) car.v = 0; }
 
   engineSound.update(car.rpm, inputs.throttle, car.engineOn);
 
@@ -208,6 +239,12 @@ function drawGame() {
     gctx.fillRect(p.x - 1, p.y - 2, 2, 6);
   }
 
+  // stop signs and traffic lights within view
+  for (const f of track.features) {
+    if (f.x < leftWX - 12 || f.x > rightWX + 12) continue;
+    drawFeature(f, toScreen(f.x, f.y));
+  }
+
   // the car: a rectangle on two wheels, rotated to the local slope
   const slope = track.slopeAt(car.s);
   const cp = toScreen(carPos.x, carPos.y);
@@ -233,6 +270,64 @@ function drawGame() {
     gctx.font = 'bold 22px sans-serif';
     gctx.fillText('ENGINE OFF — press A / Enter (clutch in or N)', 20, 34);
   }
+
+  // scoreboard (top-right)
+  gctx.fillStyle = '#0a3d0a';
+  gctx.font = '13px sans-serif';
+  gctx.textAlign = 'right';
+  gctx.fillText('Good stops/greens: ' + goodStops + '    Violations: ' + violations, W - 12, 20);
+  gctx.textAlign = 'start';
+
+  // transient message (centre top)
+  if (message && performance.now() < message.until) {
+    gctx.fillStyle = message.color;
+    gctx.font = 'bold 26px sans-serif';
+    gctx.textAlign = 'center';
+    gctx.fillText(message.text, W / 2, 40);
+    gctx.textAlign = 'start';
+  }
+}
+
+// Draw a stop sign or traffic light standing at screen point `base` (its foot).
+function drawFeature(f, base) {
+  gctx.strokeStyle = '#555';
+  gctx.lineWidth = 3;
+  if (f.type === 'stop') {
+    const postH = 3.0 * PPM, r = 1.1 * PPM;
+    const cy = base.y - postH - r;
+    gctx.beginPath(); gctx.moveTo(base.x, base.y); gctx.lineTo(base.x, base.y - postH); gctx.stroke();
+    octagon(base.x, cy, r);
+    gctx.fillStyle = '#c0392b'; gctx.fill();
+    gctx.strokeStyle = '#fff'; gctx.lineWidth = 1.5; gctx.stroke();
+    gctx.fillStyle = '#fff';
+    gctx.font = 'bold ' + Math.round(r * 0.62) + 'px sans-serif';
+    gctx.textAlign = 'center';
+    gctx.fillText('STOP', base.x, cy + r * 0.22);
+    gctx.textAlign = 'start';
+  } else {
+    const postH = 3.4 * PPM, hw = 1.0 * PPM, hh = 2.7 * PPM, lr = 0.32 * PPM;
+    const top = base.y - postH - hh;
+    gctx.beginPath(); gctx.moveTo(base.x, base.y); gctx.lineTo(base.x, base.y - postH); gctx.stroke();
+    gctx.fillStyle = '#222';
+    gctx.fillRect(base.x - hw / 2, top, hw, hh);
+    const lamps = [['red', '#e74c3c'], ['yellow', '#f1c40f'], ['green', '#2ecc71']];
+    for (let i = 0; i < 3; i++) {
+      const ly = top + hh * (0.22 + i * 0.28);
+      gctx.beginPath(); gctx.arc(base.x, ly, lr, 0, Math.PI * 2);
+      gctx.fillStyle = f.state === lamps[i][0] ? lamps[i][1] : '#3a3a3a';
+      gctx.fill();
+    }
+  }
+}
+
+function octagon(cx, cy, r) {
+  gctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = Math.PI / 8 + i * Math.PI / 4;
+    const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r;
+    if (i) gctx.lineTo(px, py); else gctx.moveTo(px, py);
+  }
+  gctx.closePath();
 }
 
 // ---------- gauges ----------
